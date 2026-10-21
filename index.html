@@ -1,271 +1,178 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VervoerApp - Dialyse & Privé</title>
-  <style>
-    :root {
-      --primary: #1976d2;
-      --bg: #f4f6f8;
-      --card-bg: #ffffff;
-      --text: #333;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: var(--bg);
-      color: var(--text);
-      margin: 0;
-      padding: 12px;
-    }
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
-      background: var(--card-bg);
-      padding: 16px;
-      border-radius: 12px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-    }
-    h2, h3 { text-align: center; color: var(--primary); margin-top: 0; }
-    .form-group { margin-bottom: 14px; }
-    label { font-weight: bold; display: block; margin-bottom: 4px; font-size: 0.9em; }
-    input, select, button {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      box-sizing: border-box;
-      font-size: 1em;
-    }
-    .gps-row { display: flex; gap: 6px; }
-    .gps-row input { flex: 1; }
-    .gps-row button { width: auto; background: #e3f2fd; color: #1976d2; border: 1px solid #90caf9; }
-    .btn-main { background: var(--primary); color: white; border: none; font-size: 1.1em; font-weight: bold; cursor: pointer; padding: 12px; margin-top: 10px; }
-    .btn-sec { background: #6c757d; color: white; border: none; margin-top: 6px; }
-    .tussenstop-item { background: #f9f9f9; padding: 8px; border-radius: 6px; border: 1px solid #eee; margin-bottom: 8px; }
-    .settings-btn { background: none; border: none; color: #666; font-size: 0.8em; text-decoration: underline; cursor: pointer; display: block; margin: 10px auto 0; text-align: center; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vervoer App - Haal & Breng</title>
+    <!-- Leaflet CSS voor de kaart -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #f4f4f9;
+        }
+        #form-container {
+            padding: 20px;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+        .input-group {
+            margin-bottom: 12px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+            }
+        #map {
+            flex-grow: 1;
+            width: 100%;
+        }
+    </style>
 </head>
 <body>
 
-<div class="container">
-  <h2>🚖 Vervoer Logboek</h2>
-
-  <form id="ritForm">
-    <!-- ID & Soort Rit -->
-    <div class="form-group">
-      <label>Rit ID (Automatisch)</label>
-      <input type="text" id="ritId" readonly>
+    <div id="form-container">
+        <h2>Vervoer Opdracht</h2>
+        <div class="input-group">
+            <label for="haalAdres">Haaladres:</label>
+            <input type="text" id="haalAdres" placeholder="Bijv. Dorpsstraat 1, Amsterdam" value="Amsterdam Centraal">
+        </div>
+        <div class="input-group">
+            <label for="brengAdres">Brengadres:</label>
+            <input type="text" id="brengAdres" placeholder="Bijv. Kerkstraat 5, Utrecht" value="Utrecht Centraal">
+        </div>
+        <button id="startBtn">Start Rit & Toon Kaart</button>
     </div>
 
-    <div class="form-group">
-      <label>Soort Rit</label>
-      <select id="soortRit">
-        <option value="Taxi (Dialyse)">Taxi (Dialyse)</option>
-        <option value="Taxi (Huis)">Taxi (Huis)</option>
-        <option value="Privé">Privé</option>
-      </select>
-    </div>
+    <!-- De Kaart -->
+    <div id="map"></div>
 
-    <!-- Afspraak & Afgesproken Haal Adres -->
-    <div class="form-group">
-      <label>Afspraak Tijd</label>
-      <input type="datetime-local" id="afspraakTijd">
-    </div>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialiseer de kaart (standaard op Nederland gericht)
+        let map = L.map('map').setView([52.1326, 5.2913], 8);
 
-    <div class="form-group">
-      <label>Afgesproken Haal Adres</label>
-      <input type="text" id="afgesprokenHaalAdres" placeholder="Bijv. Thuisadres of Dialysecentrum">
-    </div>
+        // Voeg OpenStreetMap tegels toe
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
 
-    <!-- Start Tijd & Ophaal GPS -->
-    <div class="form-group">
-      <label>Afhaal Adres (GPS / Actueel)</label>
-      <div class="gps-row">
-        <input type="text" id="afhaalAdres" placeholder="Adres via GPS...">
-        <button type="button" onclick="getGPS('afhaalAdres')">📍 GPS</button>
-      </div>
-    </div>
+        let markersLayer = L.layerGroup().addTo(map);
 
-    <div class="form-group">
-      <label>Start Tijd Rit</label>
-      <input type="datetime-local" id="startTijd">
-    </div>
-
-    <!-- Tussenstops -->
-    <hr>
-    <h3>Tussenstops</h3>
-    <div id="tussenstopsContainer"></div>
-    <button type="button" class="btn-sec" onclick="voegTussenstopToe()">+ Tussenstop Toevoegen</button>
-    <hr>
-
-    <!-- Eindpunt -->
-    <div class="form-group">
-      <label>Stop Tijd Rit</label>
-      <input type="datetime-local" id="stopTijd" onchange="berekenStatistieken()">
-    </div>
-
-    <div class="form-group">
-      <label>Breng Adres (GPS / Bestemming)</label>
-      <div class="gps-row">
-        <input type="text" id="brengAdres" placeholder="Eindadres...">
-        <button type="button" onclick="getGPS('brengAdres')">📍 GPS</button>
-      </div>
-    </div>
-
-    <!-- Berekende waarden -->
-    <div class="form-group">
-      <label>Duur Rit (minuten)</label>
-      <input type="text" id="duurRit" readonly placeholder="Wordt automatisch berekend">
-    </div>
-
-    <div class="form-group">
-      <label>Afstand (KM)</label>
-      <input type="number" step="0.1" id="afstand" placeholder="Voer aantal KM in..." onchange="berekenStatistieken()">
-    </div>
-
-    <div class="form-group">
-      <label>Gemiddelde Snelheid (km/u)</label>
-      <input type="text" id="gemSnelheid" readonly placeholder="Wordt automatisch berekend">
-    </div>
-
-    <button type="submit" class="btn-main">💾 Opslaan in Google Sheets</button>
-  </form>
-
-  <button class="settings-btn" onclick="instellingenOpenen()">⚙️ Webhook Instellingen</button>
-</div>
-
-<script>
-  let tussenstopTeller = 0;
-
-  // Genereer automatisch uniek ID op basis van datum/tijd
-  function genereerID() {
-    const d = new Date();
-    return "RIT-" + d.getFullYear() +
-      String(d.getMonth() + 1).padStart(2, '0') +
-      String(d.getDate()).padStart(2, '0') + "-" +
-      String(d.getHours()).padStart(2, '0') +
-      String(d.getMinutes()).padStart(2, '0');
-  }
-
-  document.getElementById('ritId').value = genereerID();
-
-  // GPS Locatie Ophalen (reverse geocoding via Nominatim)
-  function getGPS(targetId) {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(async (position) => {
-        const lat = position.coords.latitude;
-        const lon = position.coords.longitude;
-        try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
-          const data = await res.json();
-          document.getElementById(targetId).value = data.display_name || `${lat}, ${lon}`;
-        } catch (e) {
-          document.getElementById(targetId).value = `${lat}, ${lon}`;
+        // Functie om coördinaten op te zoeken via Nominatim (OpenStreetMap geocoding)
+        async function getCoordinates(address) {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+            try {
+                let response = await fetch(url);
+                let data = await response.json();
+                if (data && data.length > 0) {
+                    return {
+                        lat: parseFloat(data[0].lat),
+                        lon: parseFloat(data[0].lon)
+                    };
+                }
+                return null;
+            } catch (error) {
+                console.error("Fout bij ophalen adres:", error);
+                return null;
+            }
         }
-      }, (err) => {
-        alert("GPS kon niet worden opgehaald: " + err.message);
-      });
-    } else {
-      alert("GPS wordt niet ondersteund door deze browser.");
-    }
-  }
 
-  // Dynamisch tussenstops toevoegen
-  function voegTussenstopToe() {
-    tussenstopTeller++;
-    const container = document.getElementById('tussenstopsContainer');
-    const div = document.createElement('div');
-    div.className = 'tussenstop-item';
-    div.id = `ts-${tussenstopTeller}`;
-    div.innerHTML = `
-      <label>Tussenstop ${tussenstopTeller} Tijd</label>
-      <input type="datetime-local" class="ts-tijd" style="margin-bottom:4px;">
-      <label>Tussenstop ${tussenstopTeller} Adres</label>
-      <div class="gps-row">
-        <input type="text" id="ts-adres-${tussenstopTeller}" class="ts-adres" placeholder="Adres tussenstop...">
-        <button type="button" onclick="getGPS('ts-adres-${tussenstopTeller}')">📍 GPS</button>
-      </div>
-    `;
-    container.appendChild(div);
-  }
+        // Knop logica
+        document.getElementById('startBtn').addEventListener('click', async function() {
+            const haal = document.getElementById('haalAdres').value;
+            const breng = document.getElementById('brengAdres').value;
 
-  // Bereken duur en gemiddelde snelheid
-  function berekenStatistieken() {
-    const startStr = document.getElementById('startTijd').value;
-    const stopStr = document.getElementById('stopTijd').value;
-    const km = parseFloat(document.getElementById('afstand').value);
+            if (!haal || !breng) {
+                alert("Vul alstublieft zowel het haal- als brengadres in.");
+                return;
+            }
 
-    if (startStr && stopStr) {
-      const start = new Date(startStr);
-      const stop = new Date(stopStr);
-      const diffMs = stop - start;
+            // Wis oude markers
+            markersLayer.clearLayers();
 
-      if (diffMs > 0) {
-        const diffMins = Math.round(diffMs / (1000 * 60));
-        document.getElementById('duurRit').value = diffMins + " min";
+            // Haal coördinaten op voor beide adressen
+            alert("Adressen worden gezocht...");
+            const haalCoords = await getCoordinates(haal);
+            const brengCoords = await getCoordinates(breng);
 
-        if (km > 0) {
-          const uren = diffMins / 60;
-          const snelheid = Math.round(km / uren);
-          document.getElementById('gemSnelheid').value = snelheid + " km/u";
-        }
-      }
-    }
-  }
+            let bounds = [];
 
-  // Opslaan & Verzenden naar Google Sheets
-  document.getElementById('ritForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
+            if (haalCoords) {
+                let haalMarker = L.marker([haalCoords.lat, haalCoords.lon]).addTo(markersLayer)
+                    .bindPopup("<b>Haaladres:</b> " + haal).openPopup();
+                bounds.push([haalCoords.lat, haalCoords.lon]);
+            } else {
+                alert("Kon het haaladres niet vinden.");
+            }
 
-    const webhookUrl = localStorage.getItem('googleSheetsWebhookUrl');
-    if (!webhookUrl) {
-      alert("Voer eerst je Google Apps Script URL in via '⚙️ Webhook Instellingen' onderaan.");
-      return;
-    }
+            if (brengCoords) {
+                let brengMarker = L.marker([brengCoords.lat, brengCoords.lon]).addTo(markersLayer)
+                    .bindPopup("<b>Brengadres:</b> " + breng);
+                bounds.push([brengCoords.lat, brengCoords.lon]);
+            } else {
+                alert("Kon het brengadres niet vinden.");
+            }
 
-    // Tussenstops verzamelen
-    const tsTijden = Array.from(document.querySelectorAll('.ts-tijd')).map(el => el.value).join(' | ');
-    const tsAdressen = Array.from(document.querySelectorAll('.ts-adres')).map(el => el.value).join(' | ');
-
-    const payload = {
-      id: document.getElementById('ritId').value,
-      soortRit: document.getElementById('soortRit').value,
-      afspraakTijd: document.getElementById('afspraakTijd').value,
-      afgesprokenHaalAdres: document.getElementById('afgesprokenHaalAdres').value,
-      afhaalAdres: document.getElementById('afhaalAdres').value,
-      startTijd: document.getElementById('startTijd').value,
-      tussenstopsTijd: tsTijden,
-      adresTussenstop: tsAdressen,
-      stopTijd: document.getElementById('stopTijd').value,
-      brengAdres: document.getElementById('brengAdres').value,
-      duurRit: document.getElementById('duurRit').value,
-      afstand: document.getElementById('afstand').value,
-      gemSnelheid: document.getElementById('gemSnelheid').value
-    };
-
-    try {
-      await fetch(webhookUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      alert("✅ Rit succesvol opgeslagen in Google Sheets!");
-      location.reload();
-    } catch (err) {
-      alert("❌ Fout bij het opslaan: " + err.message);
-    }
-  });
-
-  function instellingenOpenen() {
-    const url = prompt("Voer je Google Apps Script Web App URL in:", localStorage.getItem('googleSheetsWebhookUrl') || '');
-    if (url !== null) {
-      localStorage.setItem('googleSheetsWebhookUrl', url);
-      alert("Instelling opgeslagen!");
-    }
-  }
-</script>
-
+            // Probeer ook de huidige locatie van de gebruiker op te halen
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    let userLat = position.coords.latitude;
+                    let userLon = position.coords.longitude;
+                    
+                    // Voeg marker toe voor huidige locatie
+                    let userIcon = L.divIcon({className: 'user-marker', html: '📍'});
+                    L.marker([userLat, userLon], {icon: userIcon}).addTo(markersLayer)
+                        .bindPopup("<b>Jij bent hier (Huidige locatie)</b>");
+                    
+                    bounds.push([userLat, userLon]);
+                    
+                    // Zoom de kaart zodat alles zichtbaar is
+                    if (bounds.length > 0) {
+                        map.fitBounds(bounds, { padding: [50, 50] });
+                    }
+                }, function(error) {
+                    console.log("Locatiebewerking geweigerd of mislukt:", error.message);
+                    if (bounds.length > 0) {
+                        map.fitBounds(bounds, { padding: [50, 50] });
+                    }
+                });
+            } else if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+        });
+    </script>
 </body>
 </html>
