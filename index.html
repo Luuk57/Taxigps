@@ -25,6 +25,10 @@
         .input-group {
             margin-bottom: 12px;
         }
+        .input-row {
+            display: flex;
+            gap: 8px;
+        }
         label {
             display: block;
             font-weight: bold;
@@ -32,14 +36,27 @@
             color: #333;
         }
         input {
-            width: 100%;
+            flex-grow: 1;
             padding: 10px;
             box-sizing: border-box;
             border: 1px solid #ccc;
             border-radius: 5px;
             font-size: 16px;
         }
-        button {
+        .btn-secondary {
+            padding: 10px 14px;
+            background-color: #17a2b8;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .btn-secondary:hover {
+            background-color: #138496;
+        }
+        .btn-primary {
             width: 100%;
             padding: 12px;
             background-color: #28a745;
@@ -49,10 +66,17 @@
             font-size: 18px;
             font-weight: bold;
             cursor: pointer;
+            margin-top: 10px;
         }
-        button:hover {
+        .btn-primary:hover {
             background-color: #218838;
-            }
+        }
+        #status {
+            margin-top: 8px;
+            font-size: 14px;
+            color: #555;
+            font-style: italic;
+        }
         #map {
             flex-grow: 1;
             width: 100%;
@@ -63,15 +87,22 @@
 
     <div id="form-container">
         <h2>Vervoer Opdracht</h2>
+        
         <div class="input-group">
             <label for="haalAdres">Haaladres:</label>
-            <input type="text" id="haalAdres" placeholder="Bijv. Dorpsstraat 1, Amsterdam" value="Amsterdam Centraal">
+            <div class="input-row">
+                <input type="text" id="haalAdres" placeholder="Bijv. Dorpsstraat 1, Amsterdam">
+                <button type="button" id="getLocatieBtn" class="btn-secondary">📍 Vul mijn stad in</button>
+            </div>
         </div>
+
         <div class="input-group">
             <label for="brengAdres">Brengadres:</label>
-            <input type="text" id="brengAdres" placeholder="Bijv. Kerkstraat 5, Utrecht" value="Utrecht Centraal">
+            <input type="text" id="brengAdres" placeholder="Bijv. Kerkstraat 5, Utrecht">
         </div>
-        <button id="startBtn">Start Rit & Toon Kaart</button>
+
+        <button id="startBtn" class="btn-primary">▶ Start Rit & Toon Kaart</button>
+        <div id="status"></div>
     </div>
 
     <!-- De Kaart -->
@@ -91,7 +122,7 @@
 
         let markersLayer = L.layerGroup().addTo(map);
 
-        // Functie om coördinaten op te zoeken via Nominatim (OpenStreetMap geocoding)
+        // Geocoding: Adres naar GPS-coördinaten
         async function getCoordinates(address) {
             const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
             try {
@@ -110,28 +141,70 @@
             }
         }
 
-        // Knop logica
+        // Reverse Geocoding: GPS-coördinaten naar Plaatsnaam/Adres
+        async function getCityFromCoords(lat, lon) {
+            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
+            try {
+                let response = await fetch(url);
+                let data = await response.json();
+                if (data && data.address) {
+                    // Pak de stad, het dorp of de gemeente
+                    const city = data.address.city || data.address.town || data.address.village || data.address.municipality || data.display_name;
+                    return city;
+                }
+                return null;
+            } catch (error) {
+                console.error("Fout bij ophalen plaatsnaam:", error);
+                return null;
+            }
+        }
+
+        // Knop 1: Vul huidige stad/locatie in bij Haaladres
+        document.getElementById('getLocatieBtn').addEventListener('click', function() {
+            const statusEl = document.getElementById('status');
+            if (!navigator.geolocation) {
+                alert("Geolocatie wordt niet ondersteund door deze browser.");
+                return;
+            }
+
+            statusEl.textContent = "Huidige locatie ophalen...";
+            navigator.geolocation.getCurrentPosition(async function(position) {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+
+                const city = await getCityFromCoords(lat, lon);
+                if (city) {
+                    document.getElementById('haalAdres').value = city;
+                    statusEl.textContent = "Stad/locatie gevonden en ingevuld!";
+                } else {
+                    statusEl.textContent = "Kon geen plaatsnaam vinden voor deze locatie.";
+                }
+            }, function(error) {
+                statusEl.textContent = "Kan locatie niet ophalen. Controleer je toestemmingen.";
+            });
+        });
+
+        // Knop 2: Start Rit & Toon Kaart
         document.getElementById('startBtn').addEventListener('click', async function() {
             const haal = document.getElementById('haalAdres').value;
             const breng = document.getElementById('brengAdres').value;
+            const statusEl = document.getElementById('status');
 
             if (!haal || !breng) {
                 alert("Vul alstublieft zowel het haal- als brengadres in.");
                 return;
             }
 
-            // Wis oude markers
+            statusEl.textContent = "Adressen worden verwerkt en op de kaart geplaatst...";
             markersLayer.clearLayers();
 
-            // Haal coördinaten op voor beide adressen
-            alert("Adressen worden gezocht...");
             const haalCoords = await getCoordinates(haal);
             const brengCoords = await getCoordinates(breng);
 
             let bounds = [];
 
             if (haalCoords) {
-                let haalMarker = L.marker([haalCoords.lat, haalCoords.lon]).addTo(markersLayer)
+                L.marker([haalCoords.lat, haalCoords.lon]).addTo(markersLayer)
                     .bindPopup("<b>Haaladres:</b> " + haal).openPopup();
                 bounds.push([haalCoords.lat, haalCoords.lon]);
             } else {
@@ -139,38 +212,37 @@
             }
 
             if (brengCoords) {
-                let brengMarker = L.marker([brengCoords.lat, brengCoords.lon]).addTo(markersLayer)
+                L.marker([brengCoords.lat, brengCoords.lon]).addTo(markersLayer)
                     .bindPopup("<b>Brengadres:</b> " + breng);
                 bounds.push([brengCoords.lat, brengCoords.lon]);
             } else {
                 alert("Kon het brengadres niet vinden.");
             }
 
-            // Probeer ook de huidige locatie van de gebruiker op te halen
+            // Huidige GPS-locatie ook op de kaart tonen als extra marker
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(function(position) {
                     let userLat = position.coords.latitude;
                     let userLon = position.coords.longitude;
-                    
-                    // Voeg marker toe voor huidige locatie
-                    let userIcon = L.divIcon({className: 'user-marker', html: '📍'});
-                    L.marker([userLat, userLon], {icon: userIcon}).addTo(markersLayer)
-                        .bindPopup("<b>Jij bent hier (Huidige locatie)</b>");
+
+                    L.marker([userLat, userLon]).addTo(markersLayer)
+                        .bindPopup("<b>Jij bent hier</b>");
                     
                     bounds.push([userLat, userLon]);
-                    
-                    // Zoom de kaart zodat alles zichtbaar is
+
                     if (bounds.length > 0) {
                         map.fitBounds(bounds, { padding: [50, 50] });
                     }
-                }, function(error) {
-                    console.log("Locatiebewerking geweigerd of mislukt:", error.message);
+                    statusEl.textContent = "Kaart bijgewerkt!";
+                }, function() {
                     if (bounds.length > 0) {
                         map.fitBounds(bounds, { padding: [50, 50] });
                     }
+                    statusEl.textContent = "Kaart bijgewerkt!";
                 });
             } else if (bounds.length > 0) {
                 map.fitBounds(bounds, { padding: [50, 50] });
+                statusEl.textContent = "Kaart bijgewerkt!";
             }
         });
     </script>
