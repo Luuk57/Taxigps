@@ -147,15 +147,16 @@
         endAddress: "Bezig met ophalen..."
     };
 
-    // Initialiseer de Leaflet Kaart
+    // Initialiseer de Leaflet Kaart met gratis OpenStreetMap
     function initMap() {
-        map = L.map('map').setView([52.3676, 4.9041], 13); // Standaard op Nederland
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap & CartoDB',
+        map = L.map('map').setView([52.3676, 4.9041], 13);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
             maxZoom: 19
         }).addTo(map);
 
-        routePolyline = L.polyline([], { color: '#3498db', weight: 5 }).addTo(map);
+        routePolyline = L.polyline([], { color: '#e74c3c', weight: 5 }).addTo(map);
     }
 
     window.onload = initMap;
@@ -227,7 +228,7 @@
             routeCoords.push(latLng);
             map.setView(latLng, 16);
             
-            // Start marker op kaart
+            // Groene marker voor de startlocatie
             L.circleMarker(latLng, { color: '#2ecc71', radius: 8, fillOpacity: 1 }).addTo(map);
         });
 
