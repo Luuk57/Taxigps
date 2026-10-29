@@ -99,8 +99,6 @@
             font-family: monospace;
             border: 1px solid #222;
         }
-        <link rel="manifest" href="manifest.json">
-
     </style>
 </head>
 <body>
@@ -126,6 +124,7 @@
     <div id="log">Geen actieve rit.</div>
 </div>
 
+<!-- Onzichtbaar stil audiobestand om Android te foppen zodat GPS actief blijft op achtergrond -->
 <audio id="silentAudio" loop style="display:none;">
     <source src="data:audio/wav;base64,UklGRjIAAABXQVZFZm10IBIAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=" type="audio/wav">
 </audio>
@@ -149,7 +148,6 @@
         endAddress: "Bezig met ophalen..."
     };
 
-    // Initialiseer de Leaflet Kaart met gratis OpenStreetMap
     function initMap() {
         map = L.map('map').setView([52.3676, 4.9041], 13);
         
@@ -169,7 +167,6 @@
         document.getElementById('tripTypeLabel').innerText = tripData.type;
     }
 
-    // Reverse Geocoding via OpenStreetMap Nominatim
     async function getAddressFromLatLon(lat, lon) {
         try {
             let response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
@@ -202,12 +199,11 @@
             return;
         }
 
-        // Keep-awake trucs
+        // Activeer achtergrond-trucs (stille audio + wakelock)
         const audio = document.getElementById('silentAudio');
         audio.play().catch(e => console.log("Audio autoplay geblokkeerd:", e));
         requestWakeLock();
 
-        // Reset kaart & data
         routeCoords = [];
         routePolyline.setLatLngs([]);
         if (currentMarker) map.removeLayer(currentMarker);
@@ -218,7 +214,6 @@
         
         tripData.startTime = new Date();
 
-        // Startlocatie bepalen
         navigator.geolocation.getCurrentPosition(async position => {
             let lat = position.coords.latitude;
             let lon = position.coords.longitude;
@@ -230,11 +225,9 @@
             routeCoords.push(latLng);
             map.setView(latLng, 16);
             
-            // Groene marker voor de startlocatie
             L.circleMarker(latLng, { color: '#2ecc71', radius: 8, fillOpacity: 1 }).addTo(map);
         });
 
-        // Live GPS Tracking
         watchId = navigator.geolocation.watchPosition(
             async position => {
                 let lat = position.coords.latitude;
@@ -260,7 +253,7 @@
     }
 
     async function stopRide() {
-        // Stop keep-awake
+        // Stop achtergrond-trucs
         const audio = document.getElementById('silentAudio');
         audio.pause();
         if (wakeLock) { wakeLock.release(); wakeLock = null; }
@@ -272,7 +265,6 @@
 
         document.getElementById('statusText').innerText = "Eindadres bepalen en verzenden...";
 
-        // Pak allerlaatste positie
         const endPos = await new Promise((resolve) => {
             navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { enableHighAccuracy: true });
         });
@@ -288,7 +280,6 @@
         document.getElementById('btnStart').style.display = 'block';
         document.getElementById('btnStop').style.display = 'none';
 
-        // Genereer een Google Maps Route Link voor in je sheet
         let startCoord = routeCoords[0] || [0,0];
         let endCoord = routeCoords[routeCoords.length - 1] || [0,0];
         let mapUrl = `https://www.google.com/maps/dir/${startCoord[0]},${startCoord[1]}/${endCoord[0]},${endCoord[1]}`;
@@ -303,7 +294,6 @@
             kaartLink: mapUrl
         };
 
-        // Verstuur naar Google Sheet
         fetch(GOOGLE_SCRIPT_URL, {
             method: "POST",
             mode: "no-cors",
