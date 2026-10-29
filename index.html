@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-    <link rel="manifest" href="manifest.json">
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ritten Tracker</title>
+    <link rel="manifest" href="manifest.json">
     <!-- Leaflet CSS voor de kaart -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -126,7 +125,7 @@
     <div id="log">Geen actieve rit.</div>
 </div>
 
-<!-- Onzichtbaar stil audiobestand om Android te foppen zodat GPS actief blijft op achtergrond -->
+<!-- Onzichtbaar stil audiobestand om achtergrond-GPS actief te houden -->
 <audio id="silentAudio" loop style="display:none;">
     <source src="data:audio/wav;base64,UklGRjIAAABXQVZFZm10IBIAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=" type="audio/wav">
 </audio>
@@ -201,7 +200,6 @@
             return;
         }
 
-        // Activeer achtergrond-trucs (stille audio + wakelock)
         const audio = document.getElementById('silentAudio');
         audio.play().catch(e => console.log("Audio autoplay geblokkeerd:", e));
         requestWakeLock();
@@ -255,7 +253,6 @@
     }
 
     async function stopRide() {
-        // Stop achtergrond-trucs
         const audio = document.getElementById('silentAudio');
         audio.pause();
         if (wakeLock) { wakeLock.release(); wakeLock = null; }
@@ -293,6 +290,10 @@
             eindTijd: endTime.toLocaleTimeString('nl-NL'),
             startGps: tripData.startAddress,
             eindGps: tripData.endAddress,
+            startLat: startCoord[0],
+            startLon: startCoord[1],
+            endLat: endCoord[0],
+            endLon: endCoord[1],
             kaartLink: mapUrl
         };
 
