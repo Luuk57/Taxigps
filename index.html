@@ -1,121 +1,221 @@
-import React, { useState } from 'react';
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ritten Tracker</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        h1 { font-size: 1.5rem; margin-bottom: 20px; }
+        .status {
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 12px;
+            background: #1e1e1e;
+        }
+        button {
+            width: 100%;
+            padding: 20px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        #btnStart { background-color: #2ecc71; color: white; }
+        #btnStop { background-color: #e74c3c; color: white; display: none; }
+        
+        .toggle-container {
+            margin: 20px 0;
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #3498db;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: #9b59b6; }
+        input:checked + .slider:before { transform: translateX(26px); }
+        
+        #log {
+            margin-top: 20px;
+            font-size: 0.85rem;
+            color: #aaa;
+            max-height: 180px;
+            overflow-y: auto;
+            text-align: left;
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
 
-// --- Module 1: Drinken ---
-function DrinkenModule() {
-  const [hoeveelheid, setHoeveelheid] = useState(0);
+<div class="container">
+    <h1>Minimale Ritten Tracker</h1>
+    
+    <div class="status" id="statusText">Status: Klaar om te starten</div>
 
-  return (
-    <div style={styles.moduleCard}>
-      <h3>☕ Drinken Module</h3>
-      <p>Huidige invoer: <strong>{hoeveelheid} ml</strong></p>
-      <div style={styles.buttonGroup}>
-        <button style={styles.button} onClick={() => setHoeveelheid(h => h + 250)}>+ 250 ml</button>
-        <button style={styles.button} onClick={() => setHoeveelheid(h => h + 500)}>+ 500 ml</button>
-        <button style={{...styles.button, backgroundColor: '#ff4d4d'}} onClick={() => setHoeveelheid(0)}>Reset</button>
-      </div>
+    <div class="toggle-container">
+        <span id="tripTypeLabel" style="font-size: 1.1rem; font-weight: bold;">Zakelijk</span>
+        <label class="switch">
+            <input type="checkbox" id="tripToggle" onclick="toggleTripType()">
+            <span class="slider"></span>
+        </label>
     </div>
-  );
-}
 
-// --- Module 2: Eten ---
-function EtenModule() {
-  const [maaltijden, setMaaltijden] = useState([]);
-  const [inputTekst, setInputTekst] = useState('');
+    <button id="btnStart" onclick="startRide()">Start Rit</button>
+    <button id="btnStop" onclick="stopRide()">Stop Rit</button>
 
-  const voegToe = (e) => {
-    e.preventDefault();
-    if (!inputTekst.trim()) return;
-    setMaaltijden([...maaltijden, inputTekst]);
-    setInputTekst('');
-  };
+    <div id="log">Geen actieve rit.</div>
+</div>
 
-  return (
-    <div style={styles.moduleCard}>
-      <h3>🍽️ Eten Module</h3>
-      <form onSubmit={voegToe} style={styles.form}>
-        <input 
-          type="text" 
-          placeholder="Voeg maaltijd toe..." 
-          value={inputTekst} 
-          onChange={(e) => setInputTekst(e.target.value)}
-          style={styles.input}
-        />
-        <button type="submit" style={styles.button}>Toevoegen</button>
-      </form>
-      <ul>
-        {maaltijden.map((item, index) => (
-          <li key={index}>{item}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
+<audio id="silentAudio" loop style="display:none;">
+    <source src="data:audio/wav;base64,UklGRjIAAABXQVZFZm10IBIAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=" type="audio/wav">
+</audio>
 
-// --- Module 3: Taxi ---
-function TaxiModule() {
-  const [status, setStatus] = labelState = useState('Geen rit geboekt');
+<script>
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCkIvdmyFFLxnaB0I3X1zN3cART9n-kfcOjs-YpOnnzU1nYwKrFHUsmaRDyOFc6d2_/exec";
 
-  return (
-    <div style={styles.moduleCard}>
-      <h3> taxis 🚖 Taxi Module</h3>
-      <p>Status: <strong>{status}</strong></p>
-      <div style={styles.buttonGroup}>
-        <button style={styles.button} onClick={() => setStatus('Rit aangevraagd')}>Boek Taxi</button>
-        <button style={{...styles.button, backgroundColor: '#ff4d4d'}} onClick={() => setStatus('Geen rit geboekt')}>Annuleer</button>
-      </div>
-    </div>
-  );
-}
+    let watchId = null;
+    let tripData = {
+        type: "Zakelijk",
+        startTime: null,
+        startCoords: null,
+        endCoords: null
+    };
 
-// --- Hoofdapplicatie (Dashboard) ---
-export default function App() {
-  const [actieveModule, setActieveModule] = useState('drinken');
+    function toggleTripType() {
+        const isPrivate = document.getElementById('tripToggle').checked;
+        tripData.type = isPrivate ? "Privé" : "Zakelijk";
+        document.getElementById('tripTypeLabel').innerText = tripData.type;
+    }
 
-  return (
-    <div style={styles.container}>
-      <h2>Mijn Modulaire App</h2>
-      
-      {/* Navigatieknoppen */}
-      <div style={styles.navBar}>
-        <button 
-          style={{...styles.navButton, backgroundColor: actieveModule === 'drinken' ? '#007bff' : '#6c757d'}} 
-          onClick={() => setActieveModule('drinken')}
-        >
-          Drinken
-        </button>
-        <button 
-          style={{...styles.navButton, backgroundColor: actieveModule === 'eten' ? '#007bff' : '#6c757d'}} 
-          onClick={() => setActieveModule('eten')}
-        >
-          Eten
-        </button>
-        <button 
-          style={{...styles.navButton, backgroundColor: actieveModule === 'taxi' ? '#007bff' : '#6c757d'}} 
-          onClick={() => setActieveModule('taxi')}
-        >
-          Taxi
-        </button>
-      </div>
+    function startRide() {
+        if (!navigator.geolocation) {
+            alert("Jouw browser ondersteunt geen GPS.");
+            return;
+        }
 
-      {/* Weergave van de actieve module */}
-      <div style={styles.contentArea}>
-        {actieveModule === 'drinken' && <DrinkenModule />}
-        {actieveModule === 'eten' && <EtenModule />}
-        {actieveModule === 'taxi' && <TaxiModule />}
-      </div>
-    </div>
-  );
-}
+        // Start stille audio om achtergrond-slaapstand van Android te omzeilen
+        const audio = document.getElementById('silentAudio');
+        audio.play().catch(e => console.log("Audio autoplay geblokkeerd:", e));
 
-// --- Eenvoudige Stijlen ---
-const styles = {
-  container: { padding: '20px', fontFamily: 'Arial, sans-serif', maxWidth: '600px', margin: '0 auto' },
-  navBar: { display: 'flex', gap: '10px', marginBottom: '20px' },
-  navButton: { padding: '10px 20px', color: '#fff', border: 'none', cursor: 'pointer', borderRadius: '5px', fontSize: '16px' },
-  contentArea: { border: '1px solid #ccc', padding: '20px', borderRadius: '8px', backgroundColor: '#f9f9f9' },
-  moduleCard: { display: 'flex', flexDirection: 'column', gap: '15px' },
-  buttonGroup: { display: 'flex', gap: '10px' },
-  button: { padding: '8px 15px', backgroundColor: '#28a745', color: '#white', border: 'none', cursor: 'pointer', borderRadius: '4px', color: '#fff' },
-  form: { display: 'flex', gap: '10px' },
-  input: { padding: '8px', flex: 1, borderRadius: '4px', border: '1px solid #ccc' }
-};
+        document.getElementById('btnStart').style.display = 'none';
+        document.getElementById('btnStop').style.display = 'block';
+        document.getElementById('statusText').innerText = `Status: Rit gestart (${tripData.type}). GPS actief...`;
+        
+        tripData.startTime = new Date();
+
+        // Pak startlocatie
+        navigator.geolocation.getCurrentPosition(position => {
+            tripData.startCoords = {
+                lat: position.coords.latitude,
+                lon: position.coords.longitude
+            };
+        });
+
+        // Volg route live
+        watchId = navigator.geolocation.watchPosition(
+            position => {
+                let timeStr = new Date().toLocaleTimeString('nl-NL');
+                let logMsg = `[${timeStr}] GPS: ${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)}<br>`;
+                document.getElementById('log').innerHTML = logMsg + document.getElementById('log').innerHTML;
+                
+                tripData.endCoords = {
+                    lat: position.coords.latitude,
+                    lon: position.coords.longitude
+                };
+            },
+            error => {
+                alert("GPS Fout: " + error.message);
+            },
+            { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+        );
+    }
+
+    function stopRide() {
+        // Stop stille audio
+        const audio = document.getElementById('silentAudio');
+        audio.pause();
+
+        if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+
+        let endTime = new Date();
+        document.getElementById('btnStart').style.display = 'block';
+        document.getElementById('btnStop').style.display = 'none';
+        document.getElementById('statusText').innerText = "Versturen naar Google Sheet...";
+
+        const ritPayload = {
+            datum: new Date().toLocaleDateString('nl-NL'),
+            type: tripData.type,
+            startTijd: tripData.startTime ? tripData.startTime.toLocaleTimeString('nl-NL') : "-",
+            eindTijd: endTime.toLocaleTimeString('nl-NL'),
+            startGps: tripData.startCoords ? `${tripData.startCoords.lat.toFixed(5)}, ${tripData.startCoords.lon.toFixed(5)}` : "-",
+            eindGps: tripData.endCoords ? `${tripData.endCoords.lat.toFixed(5)}, ${tripData.endCoords.lon.toFixed(5)}` : "-"
+        };
+
+        // Verstuur data naar Google Sheet
+        fetch(GOOGLE_SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(ritPayload)
+        })
+        .then(() => {
+            document.getElementById('statusText').innerText = "Status: Opslaan gelukt!";
+            let summary = `<b>Opgeslagen (${ritPayload.type}):</b><br>Tijd: ${ritPayload.startTijd} - ${ritPayload.eindTijd}<br><br>` + document.getElementById('log').innerHTML;
+            document.getElementById('log').innerHTML = summary;
+        })
+        .catch(err => {
+            alert("Fout bij opslaan: " + err);
+            document.getElementById('statusText').innerText = "Fout bij opslaan!";
+        });
+    }
+</script>
+
+</body>
+</html>
