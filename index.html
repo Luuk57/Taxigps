@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ritten Tracker</title>
+    <title>Ritten Tracker met Adressen</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -92,7 +92,7 @@
 <body>
 
 <div class="container">
-    <h1>Minimale Ritten Tracker</h1>
+    <h1>Ritten Tracker (Adressen)</h1>
     
     <div class="status" id="statusText">Status: Klaar om te starten</div>
 
@@ -121,8 +121,8 @@
     let tripData = {
         type: "Zakelijk",
         startTime: null,
-        startCoords: null,
-        endCoords: null
+        startAddress: "Bezig met ophalen...",
+        endAddress: "Bezig met ophalen..."
     };
 
     function toggleTripType() {
@@ -131,41 +131,59 @@
         document.getElementById('tripTypeLabel').innerText = tripData.type;
     }
 
+    // Functie om coördinaten om te zetten naar een straatnaam
+    async function getAddressFromLatLon(lat, lon) {
+        try {
+            let response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+            let data = await response.json();
+            if (data && data.address) {
+                let street = data.address.road || data.address.pedestrian || data.address.suburb || "Onbekende straat";
+                let houseNumber = data.address.house_number || "";
+                let city = data.address.city || data.address.town || data.address.village || "";
+                return `${street} ${houseNumber}, ${city}`.trim();
+            }
+        } catch (e) {
+            console.log("Fout bij ophalen adres:", e);
+        }
+        return `${lat.toFixed(4)}, ${lon.toFixed(4)}`; // Fallback op coördinaten als het misgaat
+    }
+
     function startRide() {
         if (!navigator.geolocation) {
             alert("Jouw browser ondersteunt geen GPS.");
             return;
         }
 
-        // Start stille audio om achtergrond-slaapstand van Android te omzeilen
         const audio = document.getElementById('silentAudio');
         audio.play().catch(e => console.log("Audio autoplay geblokkeerd:", e));
 
         document.getElementById('btnStart').style.display = 'none';
         document.getElementById('btnStop').style.display = 'block';
-        document.getElementById('statusText').innerText = `Status: Rit gestart (${tripData.type}). GPS actief...`;
+        document.getElementById('statusText').innerText = `Status: Rit gestart (${tripData.type}). Adres bepalen...`;
         
         tripData.startTime = new Date();
 
-        // Pak startlocatie
-        navigator.geolocation.getCurrentPosition(position => {
-            tripData.startCoords = {
-                lat: position.coords.latitude,
-                lon: position.coords.longitude
-            };
+        // Pak direct het startadres
+        navigator.geolocation.getCurrentPosition(async position => {
+            let lat = position.coords.latitude;
+            let lon = position.coords.longitude;
+            tripData.startAddress = await getAddressFromLatLon(lat, lon);
+            document.getElementById('statusText').innerText = `Status: Vertrek: ${tripData.startAddress}`;
         });
 
         // Volg route live
         watchId = navigator.geolocation.watchPosition(
-            position => {
-                let timeStr = new Date().toLocaleTimeString('nl-NL');
-                let logMsg = `[${timeStr}] GPS: ${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)}<br>`;
-                document.getElementById('log').innerHTML = logMsg + document.getElementById('log').innerHTML;
+            async position => {
+                let lat = position.coords.latitude;
+                let lon = position.coords.longitude;
                 
-                tripData.endCoords = {
-                    lat: position.coords.latitude,
-                    lon: position.coords.longitude
-                };
+                // Vertaal het meest recente punt ook direct naar een adres voor de log
+                let currentAddress = await getAddressFromLatLon(lat, lon);
+                tripData.endAddress = currentAddress;
+
+                let timeStr = new Date().toLocaleTimeString('nl-NL');
+                let logMsg = `[${timeStr}] ${currentAddress}<br>`;
+                document.getElementById('log').innerHTML = logMsg + document.getElementById('log').innerHTML;
             },
             error => {
                 alert("GPS Fout: " + error.message);
@@ -174,8 +192,7 @@
         );
     }
 
-    function stopRide() {
-        // Stop stille audio
+    async function stopRide() {
         const audio = document.getElementById('silentAudio');
         audio.pause();
 
@@ -184,18 +201,28 @@
             watchId = null;
         }
 
+        document.getElementById('statusText').innerText = "Adres controleren en versturen...";
+
+        // Pak het allerlaatste eindpunt en zet om naar adres
+        const endPos = await new Promise((resolve) => {
+            navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { enableHighAccuracy: true });
+        });
+
+        if (endPos) {
+            tripData.endAddress = await getAddressFromLatLon(endPos.coords.latitude, endPos.coords.longitude);
+        }
+
         let endTime = new Date();
         document.getElementById('btnStart').style.display = 'block';
         document.getElementById('btnStop').style.display = 'none';
-        document.getElementById('statusText').innerText = "Versturen naar Google Sheet...";
 
         const ritPayload = {
             datum: new Date().toLocaleDateString('nl-NL'),
             type: tripData.type,
             startTijd: tripData.startTime ? tripData.startTime.toLocaleTimeString('nl-NL') : "-",
             eindTijd: endTime.toLocaleTimeString('nl-NL'),
-            startGps: tripData.startCoords ? `${tripData.startCoords.lat.toFixed(5)}, ${tripData.startCoords.lon.toFixed(5)}` : "-",
-            eindGps: tripData.endCoords ? `${tripData.endCoords.lat.toFixed(5)}, ${tripData.endCoords.lon.toFixed(5)}` : "-"
+            startGps: tripData.startAddress, // Nu het echte adres i.p.v. getallen!
+            eindGps: tripData.endAddress   // Nu het echte adres i.p.v. getallen!
         };
 
         // Verstuur data naar Google Sheet
@@ -206,8 +233,8 @@
             body: JSON.stringify(ritPayload)
         })
         .then(() => {
-            document.getElementById('statusText').innerText = "Status: Opslaan gelukt!";
-            let summary = `<b>Opgeslagen (${ritPayload.type}):</b><br>Tijd: ${ritPayload.startTijd} - ${ritPayload.eindTijd}<br><br>` + document.getElementById('log').innerHTML;
+            document.getElementById('statusText').innerText = "Status: Opgeslagen met adressen!";
+            let summary = `<b>Opgeslagen (${ritPayload.type}):</b><br>Van: ${ritPayload.startGps}<br>Naar: ${ritPayload.eindGps}<br><br>` + document.getElementById('log').innerHTML;
             document.getElementById('log').innerHTML = summary;
         })
         .catch(err => {
